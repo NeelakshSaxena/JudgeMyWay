@@ -1,0 +1,43 @@
+========================================================================
+JUDGEMYWAY - EVALUATION SUMMARY (in a retrospective simulation)
+========================================================================
+
+1. CENSORING IMPACT - the why-not-Excel number
+   Pooled across all case types, in a retrospective simulation, the naive
+   approach (median duration of disposed cases only) reports 910 days.
+   The Kaplan-Meier estimate, which accounts for cases still pending, reports 1,138 days.
+   The naive approach underestimates true case duration by 228 days (20.0%), in a retrospective simulation.
+
+2. TEMPORAL VALIDATION - out-of-time generalization
+   Curves fit on 2010 filings only, evaluated against the actual outcomes of later filing cohorts (never a random split).
+   Validate cohort (2011): mean absolute difference between predicted and observed crossing rate = 0.353
+   Test cohort (2012, out-of-time): mean absolute difference = 0.363
+
+3. OPTIMISER COMPARISON - projected crossings, in a retrospective simulation
+   Available capacity: 405,278 disposals against 608,064 pending cases.
+   (a) Proportional-to-inventory baseline: 202,786 projected crossings.
+   (b) Historical-composition baseline:    391,573 projected crossings.
+   (c) Constrained optimum:                303,888 projected crossings.
+   The constrained optimum yields 101,102 more projected crossings than the unconstrained proportional baseline - the cost of the fairness and realism constraints, in a retrospective simulation.
+
+4. SENSITIVITY - projected crossings across thresholds and horizons
+    threshold    horizon      crossings
+         1y        6mo        608,063
+         1y       12mo        608,063
+         1y       24mo        608,063
+         3y        6mo        608,063
+         3y       12mo        608,063
+         3y       24mo        608,063
+         5y        6mo        608,063
+         5y       12mo        608,063
+         5y       24mo        608,063
+        10y        6mo              0
+        10y       12mo          2,751
+        10y       24mo        548,095
+
+5. CONSTRAINT AUDIT
+   No fairness or realism constraint was violated in the reported optimum.
+   Relaxation was required to reach feasibility (47 steps); effective settings: harm_floor=0.0, realism_bound=1.0, unc_cap=1.0.
+
+========================================================================
+Full evaluation written to outputs/evaluation.json

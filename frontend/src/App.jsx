@@ -178,13 +178,32 @@ export default function App() {
         })
       });
 
-      if (res.status === 501) {
-        setOverrideNotice("Override server endpoint returned 501 Not Implemented (P9 feature stub). Local allocation updated.");
-      } else if (!res.ok) {
+      if (!res.ok) {
         setOverrideNotice(`Override update status: HTTP ${res.status}`);
       } else {
         const data = await res.json();
-        setOverrideNotice(`Override updated: Delta = ${data.delta || 0} crossings`);
+
+        if (!data.feasible) {
+          setOverrideNotice(data.reason || "This combination of locked targets cannot be met.");
+        } else {
+          const before = Math.round(data.before.crossings);
+          const after = Math.round(data.after.crossings);
+          const delta = Math.round(data.delta);
+          const deltaStr = `${delta > 0 ? '+' : ''}${delta}`;
+
+          const parts = [`Projected crossings: ${before} -> ${after} (${deltaStr})`];
+
+          if (data.affected_streams && data.affected_streams.length > 0) {
+            parts.push(`Affected streams: ${data.affected_streams.join(', ')}`);
+          }
+
+          const constraintNotes = [...(data.violations || []), ...(data.relaxed_constraints || [])];
+          parts.push(constraintNotes.length > 0
+            ? `Constraints: ${constraintNotes.join('; ')}`
+            : 'Constraints: OK');
+
+          setOverrideNotice(parts.join(' | '));
+        }
       }
     } catch (err) {
       setOverrideNotice("Override local adjustment applied.");

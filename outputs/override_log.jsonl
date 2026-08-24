@@ -1,0 +1,4 @@
+{"timestamp": "2026-08-24T19:25:30.572317+00:00", "stream_id": "stream_4_5_10y", "recommended": 0, "chosen": 0, "delta_crossings": 0.0}
+{"timestamp": "2026-08-24T19:25:30.720062+00:00", "stream_id": "a", "recommended": 60, "chosen": 60, "delta_crossings": 0.0}
+{"timestamp": "2026-08-24T19:25:30.720062+00:00", "stream_id": "b", "recommended": 40, "chosen": 40, "delta_crossings": 0.0}
+{"timestamp": "2026-08-24T19:25:30.742042+00:00", "stream_id": "a", "recommended": 60, "chosen": 0, "delta_crossings": 54.0}
