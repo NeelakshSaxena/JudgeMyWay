@@ -26,9 +26,9 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-## Reproducing the Pipeline (Up to P6)
+## Reproducing the Pipeline (Up to P7)
 
-The project is currently built up to **P6: API**. To reproduce the pipeline exactly on your machine, follow these steps in order.
+The project is currently built up to **P7: Frontend Console**. To reproduce the full system on your machine, follow these steps in order.
 
 Make sure your `PYTHONPATH` is set to the project root before running scripts:
 ```powershell
@@ -64,11 +64,20 @@ python scripts/04_build_streams.py
 *Output: Generates the stream metrics file `outputs/stream_metrics.parquet`.*
 
 ### 5. P5 & P6: Optimization Engine & API Server
-The backend exposes FastAPI endpoints leveraging OR-Tools CP-SAT to dynamically optimize court allocations. To start the server:
+The backend exposes FastAPI endpoints leveraging OR-Tools CP-SAT to dynamically optimize court allocations. To start the API server:
 ```powershell
 python -m uvicorn backend.main:app --port 8000
 ```
 *Output: The backend API runs on `http://localhost:8000`.*
+
+### 6. P7: React Institutional Console (Frontend)
+The frontend is a single-screen institutional capacity-planning console built with Vite & React. To start the dev server:
+```powershell
+cd frontend
+npm install
+npx vite --port 5173
+```
+*Output: The React console opens on `http://localhost:5173`.*
 
 ## Verification & Testing
 
@@ -77,7 +86,7 @@ The project has a strict testing suite to guarantee statistical correctness, con
 ```powershell
 python -m pytest tests/test_all.py tests/test_api.py -v
 ```
-*All tests should pass green.*
+*All 27 tests should pass green.*
 
 ---
-**Status**: The pipeline is fully prepared up to **P6: API** and is ready to proceed to **P7: Frontend**.
+**Status**: The system is fully prepared up to **P7: Frontend Console** and is ready to proceed to **P8: Integration**.
