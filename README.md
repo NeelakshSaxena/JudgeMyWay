@@ -26,9 +26,9 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-## Reproducing the Pipeline (Up to P7)
+## Reproducing the Pipeline (Up to P6)
 
-The project is currently built up to **P7: Frontend Console**. To reproduce the full system on your machine, follow these steps in order.
+The project is currently built up to **P6: API**. To reproduce the pipeline exactly on your machine, follow these steps in order.
 
 Make sure your `PYTHONPATH` is set to the project root before running scripts:
 ```powershell
@@ -64,7 +64,7 @@ python scripts/04_build_streams.py
 *Output: Generates the stream metrics file `outputs/stream_metrics.parquet`.*
 
 ### 5. P5 & P6: Optimization Engine & API Server
-The backend exposes FastAPI endpoints leveraging OR-Tools CP-SAT to dynamically optimize court allocations. To start the API server:
+The backend exposes FastAPI endpoints leveraging OR-Tools CP-SAT to dynamically optimize court allocations. To start the server:
 ```powershell
 python -m uvicorn backend.main:app --port 8000
 ```
@@ -79,6 +79,18 @@ npx vite --port 5173
 ```
 *Output: The React console opens on `http://localhost:5173`.*
 
+### Single-Command Full End-to-End Pipeline Execution
+To run the entire pipeline end-to-end (from raw data recon, cleaning, survival fitting, streams simulation, test suite, to launching the backend server):
+
+```bash
+# Bash (Linux/macOS/Git Bash)
+chmod +x scripts/run_all.sh
+./scripts/run_all.sh
+
+# PowerShell (Windows)
+.\scripts/run_all.ps1
+```
+
 ## Verification & Testing
 
 The project has a strict testing suite to guarantee statistical correctness, constraint feasibility, and API functionality.
@@ -89,4 +101,4 @@ python -m pytest tests/test_all.py tests/test_api.py -v
 *All 27 tests should pass green.*
 
 ---
-**Status**: The system is fully prepared up to **P7: Frontend Console** and is ready to proceed to **P8: Integration**.
+**Status**: The system has passed the **P8: Integration** hard gate with full E2E validation. Next phase: **P9 (Override Analysis / Post-Optimization Tuning)**.
