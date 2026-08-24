@@ -1,0 +1,2 @@
+﻿# stratum ladder + confidence flags
+

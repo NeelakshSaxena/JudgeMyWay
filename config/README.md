@@ -1,0 +1,1 @@
+﻿[shared - coordinate before editing]

@@ -1,0 +1,2 @@
+﻿# REAL column names discovered in P0. Single source of truth - no module may hardcode a column name.
+

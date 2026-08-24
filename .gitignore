@@ -1,0 +1,7 @@
+﻿data/raw/
+data/processed/
+models/
+.venv/
+node_modules/
+*.pyc
+

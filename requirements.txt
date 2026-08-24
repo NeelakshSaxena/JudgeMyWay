@@ -1,0 +1,12 @@
+﻿pandas
+numpy
+duckdb
+pyarrow
+lifelines
+ortools
+fastapi
+uvicorn
+pydantic
+pyyaml
+pytest
+
