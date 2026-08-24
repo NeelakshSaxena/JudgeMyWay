@@ -1,4 +1,4 @@
-# NyayaFlow
+# JudgeMyWay
 
 A capacity-planning tool for Indian district court administrators.
 
@@ -73,4 +73,4 @@ pytest -q tests/test_all.py
 *All tests should pass green.*
 
 ---
-**Status**: The pipeline is fully prepared and ready to proceed to **P5: Optimizer**.
+**Status**: The pipeline is fully prepared up to **P5: Optimizer** and is ready to proceed to **P6: API**.

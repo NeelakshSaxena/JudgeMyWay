@@ -25,7 +25,7 @@ sequential on the data side. Nobody blocks after the contract freeze in P1.
 *(save as CLAUDE.md / AGENTS.md — every prompt below assumes the agent has read this)*
 
 ```markdown
-# NyayaFlow — Project Context
+# JudgeMyWay — Project Context
 
 ## What this is
 A capacity-planning tool for Indian district court administrators. Given a court's pending
@@ -530,7 +530,7 @@ an API_BASE constant so the switch is one line.
 
 Layout, top to bottom, on one screen at 1440x900 without scrolling if possible:
 
-1. HEADER — "NyayaFlow" · district · data period · and a persistent badge reading
+1. HEADER — "JudgeMyWay" · district · data period · and a persistent badge reading
    "RETROSPECTIVE SIMULATION" in amber. This badge is never hidden.
 2. CONTROLS row — sliders: ageing threshold (1-10 years, default 3), planning horizon
    (3-24 months, default 12), throughput (0.5x-1.5x of default), reserved priority (number).
@@ -546,7 +546,7 @@ Layout, top to bottom, on one screen at 1440x900 without scrolling if possible:
    POST /override and show: delta in projected crossings, affected streams, constraint status.
 7. DATA QUALITY strip — records loaded, excluded, censored, low-confidence streams; the
    exclusion reasons expandable.
-8. FOOTER — "NyayaFlow recommends disposal composition across case categories. It never ranks
+8. FOOTER — "JudgeMyWay recommends disposal composition across case categories. It never ranks
    individual cases. Listing remains with the registrar." Always visible.
 
 Design: navy 16255C, ice DCE4F7, gold C89B3C, background F7F8FC, ink 1F2430. Serif headings,
