@@ -26,9 +26,9 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-## Reproducing the Pipeline (Up to P4)
+## Reproducing the Pipeline (Up to P6)
 
-The project is currently built up to **P4: Streams & Risk**. To reproduce the pipeline exactly on your machine, follow these steps in order.
+The project is currently built up to **P6: API**. To reproduce the pipeline exactly on your machine, follow these steps in order.
 
 Make sure your `PYTHONPATH` is set to the project root before running scripts:
 ```powershell
@@ -63,14 +63,21 @@ python scripts/04_build_streams.py
 ```
 *Output: Generates the stream metrics file `outputs/stream_metrics.parquet`.*
 
+### 5. P5 & P6: Optimization Engine & API Server
+The backend exposes FastAPI endpoints leveraging OR-Tools CP-SAT to dynamically optimize court allocations. To start the server:
+```powershell
+python -m uvicorn backend.main:app --port 8000
+```
+*Output: The backend API runs on `http://localhost:8000`.*
+
 ## Verification & Testing
 
-The project has a strict testing suite to guarantee statistical correctness, especially conditional survival probabilities (`p_cross`) and stream isolation.
+The project has a strict testing suite to guarantee statistical correctness, constraint feasibility, and API functionality.
 
 ```powershell
-pytest -q tests/test_all.py
+python -m pytest tests/test_all.py tests/test_api.py -v
 ```
 *All tests should pass green.*
 
 ---
-**Status**: The pipeline is fully prepared up to **P5: Optimizer** and is ready to proceed to **P6: API**.
+**Status**: The pipeline is fully prepared up to **P6: API** and is ready to proceed to **P7: Frontend**.
