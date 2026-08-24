@@ -11,7 +11,34 @@ import numpy as np
 from src.optimization.allocate import allocate
 from src.survival.km import p_cross
 
-app = FastAPI()
+from contextlib import asynccontextmanager
+
+STATE = {}
+
+def check_models(app_instance):
+    for route in app_instance.routes:
+        if hasattr(route, "response_model") and route.response_model:
+            model = route.response_model
+            if hasattr(model, "model_fields"):
+                fields = model.model_fields.keys()
+            elif hasattr(model, "__fields__"):
+                fields = model.__fields__.keys()
+            else:
+                fields = []
+            assert "case_id" not in fields, f"case_id found in {model}"
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    check_models(app)
+    STATE['streams_df'] = pd.read_parquet("outputs/stream_metrics.parquet")
+    with open("models/km_curves.pkl", "rb") as f:
+        STATE['km_curves'] = pickle.load(f)
+    with open("outputs/quality_report.json", "r") as f:
+        STATE['quality'] = json.load(f)
+    yield
+    STATE.clear()
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,28 +67,7 @@ app.add_middleware(BlockCaseIdMiddleware)
 def health_api():
     return {"ok": True}
 
-STATE = {}
-
-def check_models():
-    for route in app.routes:
-        if hasattr(route, "response_model") and route.response_model:
-            model = route.response_model
-            if hasattr(model, "model_fields"):
-                fields = model.model_fields.keys()
-            elif hasattr(model, "__fields__"):
-                fields = model.__fields__.keys()
-            else:
-                fields = []
-            assert "case_id" not in fields, f"case_id found in {model}"
-
-@app.on_event("startup")
-def startup_event():
-    check_models()
-    STATE['streams_df'] = pd.read_parquet("outputs/stream_metrics.parquet")
-    with open("models/km_curves.pkl", "rb") as f:
-        STATE['km_curves'] = pickle.load(f)
-    with open("outputs/quality_report.json", "r") as f:
-        STATE['quality'] = json.load(f)
+# Lifespan handles startup events
 
 class OptimizeRequest(BaseModel):
     throughput: int = Field(..., ge=0)

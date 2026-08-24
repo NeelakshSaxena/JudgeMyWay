@@ -1,12 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
-from backend.main import app, startup_event
+from backend.main import app
 import json
 
 @pytest.fixture(scope="module")
 def client():
-    # Run the startup event manually to load the module state
-    startup_event()
     with TestClient(app) as c:
         yield c
 

@@ -132,3 +132,66 @@ def test_build_streams_t9():
     # Check that per-case columns are NOT present
     for col in ["court_id", "district", "state", "filing_date", "duration_days", "event_observed"]:
         assert col not in columns
+
+from src.optimization.allocate import allocate
+import math
+
+def test_allocate_t10():
+    # T10 sum(allocation) <= throughput - reserved
+    streams = [{"id": "s1", "n": 100, "p": 0.5, "historical_share": 1.0, "low_confidence": False}]
+    res = allocate(streams, throughput=50, reserved=10)
+    assert sum(res["allocation"].values()) <= 40
+
+def test_allocate_t11():
+    # T11 every x_s >= floor(0.8 * b_s) when no relaxation was recorded
+    streams = [
+        {"id": "s1", "n": 100, "p": 0.5, "historical_share": 0.5, "low_confidence": False},
+        {"id": "s2", "n": 100, "p": 0.1, "historical_share": 0.5, "low_confidence": False}
+    ]
+    res = allocate(streams, throughput=100)
+    assert len(res["relaxed_constraints"]) == 0
+    for s in streams:
+        sid = s["id"]
+        b_s = res["baseline"][sid]
+        assert res["allocation"][sid] >= math.floor(0.8 * b_s)
+
+def test_allocate_t12():
+    # T12 every |x_s - h_s| <= 0.30 * h_s when no relaxation was recorded
+    streams = [
+        {"id": "s1", "n": 100, "p": 0.5, "historical_share": 0.5, "low_confidence": False},
+        {"id": "s2", "n": 100, "p": 0.1, "historical_share": 0.5, "low_confidence": False}
+    ]
+    res = allocate(streams, throughput=100)
+    assert len(res["relaxed_constraints"]) == 0
+    for s in streams:
+        sid = s["id"]
+        h_s = s["historical_share"] * 100
+        x_s = res["allocation"][sid]
+        assert abs(x_s - h_s) <= 0.30 * h_s + 1e-9
+
+def test_allocate_t13():
+    # T13 throughput = 0 returns feasible with all x_s = 0
+    streams = [{"id": "s1", "n": 100, "p": 0.5, "historical_share": 1.0, "low_confidence": False}]
+    res = allocate(streams, throughput=0)
+    assert res["feasible"] is True
+    assert all(x == 0 for x in res["allocation"].values())
+
+def test_allocate_t14():
+    # T14 an over-constrained input returns feasible=True with a non-empty relaxed_constraints
+    streams = [
+        {"id": "s1", "n": 100, "p": 0.5, "historical_share": 0.0, "low_confidence": False},
+        {"id": "s2", "n": 100, "p": 0.1, "historical_share": 1.0, "low_confidence": False}
+    ]
+    res = allocate(streams, throughput=100)
+    assert res["feasible"] is True
+    assert len(res["relaxed_constraints"]) > 0
+
+def test_allocate_t15():
+    # T15 after.crossings <= before.crossings when no relaxation was applied
+    streams = [
+        {"id": "s1", "n": 100, "p": 0.9, "historical_share": 0.5, "low_confidence": False},
+        {"id": "s2", "n": 100, "p": 0.1, "historical_share": 0.5, "low_confidence": False}
+    ]
+    res = allocate(streams, throughput=100)
+    assert len(res["relaxed_constraints"]) == 0
+    assert res["after"]["crossings"] <= res["before"]["crossings"]
