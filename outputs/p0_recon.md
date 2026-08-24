@@ -2,6 +2,7 @@
 
 ## 1. Files in data/raw/
 
+- `data/raw\.gitkeep`: 0.00 MB
 - `data/raw\justice_data.zip`: 4890.69 MB
 - `data/raw\license.txt`: 0.02 MB
 - `data/raw\README.md`: 0.00 MB
@@ -31,7 +32,6 @@
 
 - `ddl_case_id` -> Found
 - `date_of_filing` -> Found
-- **FLAG**: Mapped column `date_of_registration` NOT FOUND in real data.
 - `date_of_decision` -> Found
 - `type_name` -> Found
 - `court_no` -> Found
@@ -75,11 +75,11 @@
 - Examples: ['01', '01', '01', '01', '01']
 
 ## 5. Data Cutoff
-- True maximum decision_date: `7201-10-15`
+- True maximum decision_date: `2029-12-30`
 
 ## 6. Presence Checks for Implicit Information
 
-- Gender columns found: ['female_adv_pet', 'female_petitioner', 'female_adv_def', 'female_defendant']
+- Gender columns found: ['female_defendant', 'female_petitioner', 'female_adv_def', 'female_adv_pet']
 - Judge columns found: ['judge_position']
 - Disposition/Status columns found: ['disp_name']
 

@@ -4,14 +4,13 @@ import json
 import math
 import pytest
 from fastapi.testclient import TestClient
-from backend.main import app, startup_event
+from backend.main import app
 from src.optimization.allocate import allocate
 from src.optimization.override import override
 
 @pytest.fixture(scope="module")
 def client():
-    # Run the startup event manually to load the module state
-    startup_event()
+    # TestClient's context manager triggers the app's lifespan (startup/shutdown)
     with TestClient(app) as c:
         yield c
 

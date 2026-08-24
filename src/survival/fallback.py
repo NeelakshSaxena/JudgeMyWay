@@ -5,6 +5,7 @@ import numpy as np
 # Cache the fallbacks so we only fit them once per hierarchy level
 FALLBACK_CACHE = {}
 COURT_LOC_CACHE = {}
+INDEX_CACHE = {}
 
 def get_court_loc(df, court_id):
     if not COURT_LOC_CACHE:
@@ -29,11 +30,11 @@ def get_fallback(df, key, indices):
     return FALLBACK_CACHE[key]
 
 def resolve(case_type, court_id, curves, df):
-    # Ensure indices are cached on the dataframe for O(1) lookups
-    if not hasattr(df, '_fallback_dist_idx'):
-        df._fallback_dist_idx = df.groupby(['case_type', 'district']).indices
-        df._fallback_state_idx = df.groupby(['case_type', 'state']).indices
-        df._fallback_ctype_idx = df.groupby('case_type').indices
+    # Ensure indices are cached for O(1) lookups
+    if not INDEX_CACHE:
+        INDEX_CACHE['dist'] = df.groupby(['case_type', 'district']).indices
+        INDEX_CACHE['state'] = df.groupby(['case_type', 'state']).indices
+        INDEX_CACHE['ctype'] = df.groupby('case_type').indices
         
     # 1. Primary strata
     if (case_type, court_id) in curves:
@@ -46,21 +47,21 @@ def resolve(case_type, court_id, curves, df):
     if district is not None:
         # 2. District level
         key_dist = ("district", case_type, district)
-        idx = df._fallback_dist_idx.get((case_type, district), [])
+        idx = INDEX_CACHE['dist'].get((case_type, district), [])
         kmf = get_fallback(df, key_dist, idx)
         if kmf is not None:
             return kmf, "case_type x district", True
             
         # 3. State level
         key_state = ("state", case_type, state)
-        idx = df._fallback_state_idx.get((case_type, state), [])
+        idx = INDEX_CACHE['state'].get((case_type, state), [])
         kmf = get_fallback(df, key_state, idx)
         if kmf is not None:
             return kmf, "case_type x state", True
 
     # 4. Global case type
     key_ctype = ("case_type", case_type)
-    idx = df._fallback_ctype_idx.get(case_type, [])
+    idx = INDEX_CACHE['ctype'].get(case_type, [])
     kmf = get_fallback(df, key_ctype, idx)
     if kmf is not None:
         return kmf, "case_type", True

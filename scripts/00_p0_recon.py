@@ -102,7 +102,7 @@ def run_recon():
     dec_col = schema.get('decision_date')
     if dec_col in actual_columns:
         # Assuming format allows string max for iso dates, else parse. DevDataLab uses YYYY-MM-DD
-        max_date_raw = con.execute(f"SELECT MAX({dec_col}) FROM read_csv_auto('{main_csv}')").fetchone()[0]
+        max_date_raw = con.execute(f"SELECT MAX({dec_col}) FROM read_csv_auto('{main_csv}') WHERE {dec_col} <= '2030-01-01'").fetchone()[0]
         max_date = str(max_date_raw) if max_date_raw is not None else ""
         report_lines.append(f"## 5. Data Cutoff\n- True maximum decision_date: `{max_date}`\n")
         # Update schema.yaml
