@@ -4,4 +4,4 @@ models/
 .venv/
 node_modules/
 *.pyc
-
+venv/

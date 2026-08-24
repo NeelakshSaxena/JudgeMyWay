@@ -1,0 +1,182 @@
+{
+  "/health": {
+    "ok": true
+  },
+  "/meta": {
+    "court": "District Court",
+    "district": "Mock District",
+    "period": "2010 - 2016",
+    "n_cases": 15000,
+    "default_throughput": 5000,
+    "threshold_days": 1095,
+    "horizon_days": 365,
+    "mode": "SIMULATED"
+  },
+  "/streams": {
+    "streams": [
+      {
+        "id": "stream_0",
+        "case_type": "Civil Suit",
+        "age_band": "0-1y",
+        "n": 1000,
+        "p": 0.2,
+        "p_lo": 0.15,
+        "p_hi": 0.25,
+        "low_confidence": true,
+        "stratum_level": "case_type x court",
+        "historical_share": 0.125,
+        "baseline": 125,
+        "projected_crossings": 250
+      },
+      {
+        "id": "stream_1",
+        "case_type": "Criminal Case",
+        "age_band": "1-3y",
+        "n": 1100,
+        "p": 0.25,
+        "p_lo": 0.2,
+        "p_hi": 0.3,
+        "low_confidence": false,
+        "stratum_level": "case_type x court",
+        "historical_share": 0.125,
+        "baseline": 125,
+        "projected_crossings": 250
+      },
+      {
+        "id": "stream_2",
+        "case_type": "Civil Suit",
+        "age_band": "3-5y",
+        "n": 1200,
+        "p": 0.3,
+        "p_lo": 0.25,
+        "p_hi": 0.35,
+        "low_confidence": false,
+        "stratum_level": "case_type x court",
+        "historical_share": 0.125,
+        "baseline": 125,
+        "projected_crossings": 250
+      },
+      {
+        "id": "stream_3",
+        "case_type": "Criminal Case",
+        "age_band": "5-10y",
+        "n": 1300,
+        "p": 0.35,
+        "p_lo": 0.3,
+        "p_hi": 0.4,
+        "low_confidence": false,
+        "stratum_level": "case_type x court",
+        "historical_share": 0.125,
+        "baseline": 125,
+        "projected_crossings": 250
+      },
+      {
+        "id": "stream_4",
+        "case_type": "Civil Suit",
+        "age_band": "10y+",
+        "n": 1400,
+        "p": 0.4,
+        "p_lo": 0.35,
+        "p_hi": 0.45,
+        "low_confidence": true,
+        "stratum_level": "case_type x court",
+        "historical_share": 0.125,
+        "baseline": 125,
+        "projected_crossings": 250
+      },
+      {
+        "id": "stream_5",
+        "case_type": "Criminal Case",
+        "age_band": "0-1y",
+        "n": 1500,
+        "p": 0.45,
+        "p_lo": 0.4,
+        "p_hi": 0.5,
+        "low_confidence": false,
+        "stratum_level": "case_type x court",
+        "historical_share": 0.125,
+        "baseline": 125,
+        "projected_crossings": 250
+      },
+      {
+        "id": "stream_6",
+        "case_type": "Civil Suit",
+        "age_band": "1-3y",
+        "n": 1600,
+        "p": 0.5,
+        "p_lo": 0.45,
+        "p_hi": 0.55,
+        "low_confidence": false,
+        "stratum_level": "case_type x court",
+        "historical_share": 0.125,
+        "baseline": 125,
+        "projected_crossings": 250
+      },
+      {
+        "id": "stream_7",
+        "case_type": "Criminal Case",
+        "age_band": "3-5y",
+        "n": 1700,
+        "p": 0.55,
+        "p_lo": 0.5,
+        "p_hi": 0.6,
+        "low_confidence": false,
+        "stratum_level": "case_type x court",
+        "historical_share": 0.125,
+        "baseline": 125,
+        "projected_crossings": 250
+      }
+    ]
+  },
+  "/optimize": {
+    "feasible": true,
+    "allocation": {
+      "stream_0": 150,
+      "stream_1": 150,
+      "stream_2": 150,
+      "stream_3": 150,
+      "stream_4": 150,
+      "stream_5": 150,
+      "stream_6": 150,
+      "stream_7": 150
+    },
+    "before": {
+      "crossings": 2000
+    },
+    "after": {
+      "crossings": 1500
+    },
+    "relaxed_constraints": [
+      "fairness floor relaxed 0.80 -> 0.75"
+    ]
+  },
+  "/override": {
+    "before": {
+      "crossings": 1500
+    },
+    "after": {
+      "crossings": 1550
+    },
+    "delta": 50,
+    "affected_streams": [
+      "stream_1",
+      "stream_2"
+    ],
+    "violations": [
+      "fairness floor relaxed 0.75 -> 0.70"
+    ]
+  },
+  "/quality": {
+    "records_loaded": 20000,
+    "records_excluded": 5000,
+    "records_censored": 2000,
+    "exclusions": {
+      "missing_filing": 1000,
+      "impossible_dates": 1000,
+      "duplicates": 1000,
+      "unknown_case_type": 1000,
+      "transferred": 1000
+    },
+    "low_confidence_streams": 2
+  }
+}

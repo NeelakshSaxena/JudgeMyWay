@@ -1,0 +1,13 @@
+{
+  "missing_filing": 0,
+  "impossible_dates": 25758,
+  "duplicates": 0,
+  "unknown_case_type": 0,
+  "censored": 608064,
+  "same_day": 140069,
+  "extreme_duration": 0,
+  "transferred": null,
+  "records_loaded": 4281327,
+  "records_retained": 4255569,
+  "transfer_detection": "unavailable \u2014 not flagged in public extract"
+}

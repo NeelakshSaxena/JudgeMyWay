@@ -1,2 +1,21 @@
-﻿# REAL column names discovered in P0. Single source of truth - no module may hardcode a column name.
-
+case_id: ddl_case_id
+filing_date: date_of_filing
+registration_date: null
+decision_date: date_of_decision
+case_type: type_name
+court_id: court_no
+district: dist_code
+state: state_code
+act_section: null
+pending_flag: null
+transfer_flag: null
+date_format: '%Y-%m-%d'
+data_cutoff: '2018-12-31'
+drop_columns:
+- judge_position
+- female_defendant
+- female_petitioner
+- female_adv_def
+- female_adv_pet
+- disp_name
+- purpose_name
