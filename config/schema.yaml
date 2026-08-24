@@ -10,7 +10,7 @@ act_section: null
 pending_flag: null
 transfer_flag: null
 date_format: '%Y-%m-%d'
-data_cutoff: '2029-12-30'
+data_cutoff: '2020-12-24'
 drop_columns:
 - judge_position
 - female_defendant

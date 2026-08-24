@@ -11,7 +11,10 @@ def run_streams():
     from src.streams.build import build_streams
     print("Building streams...")
     
-    streams_df = build_streams(df, curves, threshold_days=730, horizon_days=365)
+    # 1095/365 (3yr threshold, 12mo horizon) is the app-wide default: it's what
+    # backend/main.py's MetaResponse advertises and the only combination it serves
+    # from this cached file without recomputing (see get_streams_api).
+    streams_df = build_streams(df, curves, threshold_days=1095, horizon_days=365)
     
     streams_df.to_parquet("outputs/stream_metrics.parquet")
     print(f"Streams written to outputs/stream_metrics.parquet")
