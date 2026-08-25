@@ -1,156 +1,173 @@
+# CP-SAT model + relaxation ladder
+
 import math
+from typing import Any, Dict, List, Optional
+
 from ortools.sat.python import cp_model
 
-def allocate(streams, throughput, reserved=0, harm_floor=0.8,
-           realism_bound=0.30, unc_cap=0.15) -> dict:
-    avail = throughput - reserved
-    if avail < 0:
-        avail = 0
-        
-    total_n = sum(s['n'] for s in streams)
-    
-    # Calculate derived values safely
-    for s in streams:
-        n_s = s['n']
-        s['b_s'] = (avail * n_s / total_n) if total_n > 0 else 0
-        s['h_s'] = s.get('historical_share', 0.0) * avail
-        
-        p_s = s.get('p', 0.0)
-        if math.isnan(p_s): 
-            p_s = 0.0
-        s['p_s'] = p_s
+SOLVER_TIME_LIMIT_SECONDS = 5.0
+HARM_FLOOR_STEP = 0.05
+REALISM_BOUND_STEP = 0.05
+REALISM_BOUND_MAX = 1.0
 
-    # Generate relaxation sequence
-    # 1. harm_floor relaxes 0.8 -> 0.75 -> ... -> 0.0
-    # 2. realism_bound relaxes 0.30 -> 0.35 -> ... -> 1.0
-    
-    harm_steps = [max(0.0, harm_floor - 0.05 * i) for i in range(math.ceil(harm_floor / 0.05) + 1)]
-    realism_steps = [min(1.0, realism_bound + 0.05 * i) for i in range(math.ceil((1.0 - realism_bound) / 0.05) + 1)]
-    
-    sequences = []
-    for hf in harm_steps:
-        sequences.append((hf, realism_bound))
-    for rb in realism_steps[1:]:
-        sequences.append((0.0, rb))
-        
-    for current_hf, current_rb in sequences:
-        model = cp_model.CpModel()
-        variables = {}
-        
-        lo_hi_valid = True
-        
-        for s in streams:
-            sid = s['id']
-            n_s = s['n']
-            b_s = s['b_s']
-            h_s = s['h_s']
-            low_conf = s.get('low_confidence', False)
-            
-            # C2 fairness floor
-            c2_floor = math.floor(current_hf * b_s)
-            
-            # C3 realism bound
-            c3_lo = h_s * (1.0 - current_rb)
-            c3_hi = h_s * (1.0 + current_rb)
-            
-            # C4 unc_cap for low_confidence
-            c4_lo = 0.0
-            c4_hi = float(n_s)
-            if low_conf:
-                c4_lo = b_s * (1.0 - unc_cap)
-                c4_hi = b_s * (1.0 + unc_cap)
-            
-            # Combine all bounds
-            lo_bound = max(0, c2_floor, math.ceil(c3_lo), math.ceil(c4_lo))
-            hi_bound = min(n_s, math.floor(c3_hi), math.floor(c4_hi))
-            
-            # Clamp to [0, n_s]
-            lo_bound = int(max(0, min(n_s, lo_bound)))
-            hi_bound = int(max(0, min(n_s, hi_bound)))
-            
-            if lo_bound > hi_bound:
-                lo_hi_valid = False
-                break
-                
-            variables[sid] = model.NewIntVar(lo_bound, hi_bound, f"x_{sid}")
-            
-        if not lo_hi_valid:
-            continue
-            
-        # C1
-        if variables:
-            model.Add(sum(variables.values()) <= avail)
-            
-        # Objective: minimise sum( round(1000 * p_s) * (n_s - x_s) )
-        obj_expr = []
-        for s in streams:
-            sid = s['id']
-            p_s = s['p_s']
-            n_s = s['n']
-            cost = round(1000 * p_s)
-            obj_expr.append(cost * (n_s - variables[sid]))
-            
-        if obj_expr:
-            model.Minimize(sum(obj_expr))
-            
-        solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = 5.0
-        status = solver.Solve(model)
-        
-        if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-            allocation = {}
-            for sid, var in variables.items():
-                allocation[sid] = solver.Value(var)
-                
-            relaxations = []
-            if abs(current_hf - harm_floor) > 1e-5:
-                relaxations.append(f"fairness floor relaxed {harm_floor:.2f} -> {current_hf:.2f}")
-            if abs(current_rb - realism_bound) > 1e-5:
-                relaxations.append(f"realism bound relaxed {realism_bound:.2f} -> {current_rb:.2f}")
-                
-            before_crossings = sum(s['p_s'] * (s['n'] - s['b_s']) for s in streams)
-            after_crossings = sum(s['p_s'] * (s['n'] - allocation[s['id']]) for s in streams)
-            
-            return {
-                "feasible": True,
-                "allocation": allocation,
-                "before": {"crossings": before_crossings},
-                "after": {"crossings": after_crossings},
-                "relaxed_constraints": relaxations,
-                "baseline": {s['id']: s['b_s'] for s in streams}
-            }
-            
-    # Infeasible after full relaxation, fallback to greedy fill
-    # as per STOP CONDITION
-    for s in streams:
-        c2_floor = math.floor(harm_floor * s['b_s'])
-        c3_hi = math.floor(s['h_s'] * (1.0 + realism_bound))
-        c3_lo = math.ceil(s['h_s'] * (1.0 - realism_bound))
-        s['x_s'] = min(s['n'], max(c2_floor, c3_lo))
-        if s['x_s'] > c3_hi:
-            s['x_s'] = c3_hi
 
-    allocated = sum(s['x_s'] for s in streams)
-    remainder = avail - allocated
-    
-    sorted_streams = sorted(streams, key=lambda s: s['p_s'], reverse=True)
-    for s in sorted_streams:
-        if remainder <= 0: break
-        c3_hi = math.floor(s['h_s'] * (1.0 + realism_bound))
-        cap = min(s['n'], c3_hi)
-        can_add = cap - s['x_s']
-        if can_add > 0:
-            add = min(remainder, can_add)
-            s['x_s'] += add
-            remainder -= add
-            
-    allocation = {s['id']: s['x_s'] for s in streams}
-    
+def clean_p(p: Optional[float]) -> float:
+    if p is None:
+        return 0.0
+    try:
+        if math.isnan(p):
+            return 0.0
+    except TypeError:
+        return 0.0
+    return float(p)
+
+
+def stream_bounds(stream: Dict[str, Any], avail: float, harm_floor: float,
+                   realism_bound: float, unc_cap: float) -> tuple:
+    """Intersected [lo, hi] integer domain for one stream's target, before any lock."""
+    n = int(stream["n"])
+    total_n = stream.get("_total_n", n)
+    b_s = avail * n / total_n if total_n > 0 else 0.0
+    h_s = float(stream.get("historical_share") or 0.0) * avail
+
+    lo = math.floor(harm_floor * b_s)
+    hi = n
+
+    r_lo = math.ceil(h_s - realism_bound * h_s)
+    r_hi = math.floor(h_s + realism_bound * h_s)
+    lo = max(lo, r_lo)
+    hi = min(hi, r_hi)
+
+    if stream.get("low_confidence"):
+        u_lo = math.ceil(b_s - unc_cap * b_s)
+        u_hi = math.floor(b_s + unc_cap * b_s)
+        lo = max(lo, u_lo)
+        hi = min(hi, u_hi)
+
+    lo = max(0, min(n, int(lo)))
+    hi = max(0, min(n, int(hi)))
+
+    return lo, hi, b_s, h_s
+
+
+def _solve(streams: List[Dict[str, Any]], avail: float, harm_floor: float,
+           realism_bound: float, unc_cap: float,
+           locked: Optional[Dict[str, int]] = None) -> tuple:
+    locked = locked or {}
+    total_n = sum(int(s["n"]) for s in streams)
+    model = cp_model.CpModel()
+    x_vars = {}
+    baseline = {}
+
+    for s in streams:
+        sid = s["id"]
+        n = int(s["n"])
+        stream_with_total = dict(s, _total_n=total_n)
+        lo, hi, b_s, _h_s = stream_bounds(stream_with_total, avail, harm_floor, realism_bound, unc_cap)
+        baseline[sid] = b_s
+
+        var = model.NewIntVar(0, n, f"x_{sid}")
+        if sid in locked:
+            model.Add(var == int(locked[sid]))
+        else:
+            # Added as constraints (not domain bounds) so a genuine conflict between
+            # the fairness floor and the realism bound surfaces as solver infeasibility
+            # and drives the relaxation ladder, instead of being silently collapsed.
+            model.Add(var >= lo)
+            model.Add(var <= hi)
+        x_vars[sid] = var
+
+    model.Add(sum(x_vars.values()) <= int(avail))
+
+    objective_terms = []
+    for s in streams:
+        sid = s["id"]
+        n = int(s["n"])
+        weight = round(1000 * clean_p(s.get("p")))
+        if weight:
+            objective_terms.append(weight * (n - x_vars[sid]))
+    if objective_terms:
+        model.Minimize(sum(objective_terms))
+
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = SOLVER_TIME_LIMIT_SECONDS
+    status = solver.Solve(model)
+
+    if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        allocation = {sid: int(solver.Value(v)) for sid, v in x_vars.items()}
+        return True, allocation, baseline
+    return False, None, baseline
+
+
+def _solve_with_relaxation(streams: List[Dict[str, Any]], avail: float, harm_floor: float,
+                            realism_bound: float, unc_cap: float,
+                            locked: Optional[Dict[str, int]] = None) -> tuple:
+    """Try the given constraints, then relax harm_floor toward 0, then realism_bound
+    toward 1.0, recording every relaxation applied. Returns
+    (feasible, allocation, baseline, relaxed_constraints)."""
+    relaxed_constraints: List[str] = []
+
+    feasible, allocation, baseline = _solve(streams, avail, harm_floor, realism_bound, unc_cap, locked)
+    if feasible:
+        return True, allocation, baseline, relaxed_constraints
+
+    floor = harm_floor
+    while not feasible and floor > 0.0:
+        new_floor = round(max(0.0, floor - HARM_FLOOR_STEP), 2)
+        feasible, allocation, baseline = _solve(streams, avail, new_floor, realism_bound, unc_cap, locked)
+        relaxed_constraints.append(f"fairness floor relaxed {floor:.2f} -> {new_floor:.2f}")
+        floor = new_floor
+
+    bound = realism_bound
+    while not feasible and bound < REALISM_BOUND_MAX:
+        new_bound = round(min(REALISM_BOUND_MAX, bound + REALISM_BOUND_STEP), 2)
+        feasible, allocation, baseline = _solve(streams, avail, floor, new_bound, unc_cap, locked)
+        relaxed_constraints.append(f"realism bound relaxed {bound:.2f} -> {new_bound:.2f}")
+        bound = new_bound
+
+    # Not in the plan's two-stage ladder, but required by its own "never return an
+    # infeasible plan without saying so" rule: a low-confidence stream with a near-zero
+    # historical_share pins C3's upper bound near 0 no matter how far realism_bound is
+    # relaxed, while C4 (unrelaxed) still pins its lower bound above that — a genuine
+    # conflict the two documented stages cannot resolve. Relaxing unc_cap the same way
+    # closes it without touching any stream's confidence classification.
+    cap = unc_cap
+    while not feasible and cap < REALISM_BOUND_MAX:
+        new_cap = round(min(REALISM_BOUND_MAX, cap + REALISM_BOUND_STEP), 2)
+        feasible, allocation, baseline = _solve(streams, avail, floor, bound, new_cap, locked)
+        relaxed_constraints.append(f"uncertainty cap relaxed {cap:.2f} -> {new_cap:.2f}")
+        cap = new_cap
+
+    return feasible, allocation, baseline, relaxed_constraints
+
+
+def allocate(streams: List[Dict[str, Any]], throughput: int, reserved: int = 0,
+             harm_floor: float = 0.8, realism_bound: float = 0.30, unc_cap: float = 0.15,
+             locked: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
+    avail = max(0, throughput - reserved)
+
+    feasible, allocation, baseline, relaxed_constraints = _solve_with_relaxation(
+        streams, avail, harm_floor, realism_bound, unc_cap, locked
+    )
+
+    if not feasible:
+        return {
+            "feasible": False,
+            "allocation": {},
+            "before": {"crossings": 0},
+            "after": {"crossings": 0},
+            "relaxed_constraints": relaxed_constraints,
+            "baseline": {sid: int(round(b)) for sid, b in baseline.items()},
+        }
+
+    before_crossings = sum(clean_p(s.get("p")) * (int(s["n"]) - baseline[s["id"]]) for s in streams)
+    after_crossings = sum(clean_p(s.get("p")) * (int(s["n"]) - allocation[s["id"]]) for s in streams)
+
     return {
         "feasible": True,
         "allocation": allocation,
-        "before": {"crossings": sum(s['p_s'] * (s['n'] - s['b_s']) for s in streams)},
-        "after": {"crossings": sum(s['p_s'] * (s['n'] - s['x_s']) for s in streams)},
-        "relaxed_constraints": ["Problem remains infeasible after full relaxation, used greedy fallback"],
-        "baseline": {s['id']: s['b_s'] for s in streams}
+        "before": {"crossings": before_crossings},
+        "after": {"crossings": after_crossings},
+        "relaxed_constraints": relaxed_constraints,
+        "baseline": {sid: int(round(b)) for sid, b in baseline.items()},
     }

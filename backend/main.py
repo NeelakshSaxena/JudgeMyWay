@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field, model_validator
@@ -9,6 +9,7 @@ import json
 import numpy as np
 
 from src.optimization.allocate import allocate
+from src.optimization.override import override
 from src.survival.km import p_cross
 
 from contextlib import asynccontextmanager
@@ -126,6 +127,17 @@ class OptimizeResponse(BaseModel):
     before: Dict[str, int]
     after: Dict[str, int]
     relaxed_constraints: List[str]
+    baseline: Dict[str, int]
+
+class OverrideResponse(BaseModel):
+    feasible: bool
+    before: Dict[str, float]
+    after: Dict[str, float]
+    delta: float
+    affected_streams: List[str]
+    violations: List[str]
+    relaxed_constraints: List[str]
+    reason: Optional[str] = None
 
 class QualityResponse(BaseModel):
     records_loaded: int
@@ -223,18 +235,37 @@ def optimize_api(req: OptimizeRequest):
             s['p'] = 0.0
             
     res = allocate(streams_list, req.throughput, req.reserved)
-    
+
     return OptimizeResponse(
         feasible=res["feasible"],
         allocation=res["allocation"],
         before={"crossings": int(res["before"]["crossings"])},
         after={"crossings": int(res["after"]["crossings"])},
-        relaxed_constraints=res["relaxed_constraints"]
+        relaxed_constraints=res["relaxed_constraints"],
+        baseline=res["baseline"]
     )
 
-@app.post("/override")
+@app.post("/override", response_model=OverrideResponse)
 def override_api(req: OverrideRequest):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    streams_resp = get_streams_api(req.threshold_days, req.horizon_days)
+    streams_list = [s.model_dump() if hasattr(s, 'model_dump') else s.dict() for s in streams_resp.streams]
+
+    for s in streams_list:
+        if s.get('p') is None:
+            s['p'] = 0.0
+
+    res = override(streams_list, req.throughput, req.reserved, req.locked)
+
+    return OverrideResponse(
+        feasible=res["feasible"],
+        before=res["before"],
+        after=res["after"],
+        delta=res["delta"],
+        affected_streams=res["affected_streams"],
+        violations=res["violations"],
+        relaxed_constraints=res["relaxed_constraints"],
+        reason=res.get("reason")
+    )
 
 @app.get("/quality", response_model=QualityResponse)
 def quality_api():

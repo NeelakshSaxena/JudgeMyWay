@@ -101,8 +101,14 @@ def run_recon():
     print("Finding data cutoff...")
     dec_col = schema.get('decision_date')
     if dec_col in actual_columns:
-        # Assuming format allows string max for iso dates, else parse. DevDataLab uses YYYY-MM-DD
-        max_date_raw = con.execute(f"SELECT MAX({dec_col}) FROM read_csv_auto('{main_csv}') WHERE {dec_col} <= '2030-01-01'").fetchone()[0]
+        # Assuming format allows string max for iso dates, else parse. DevDataLab uses YYYY-MM-DD.
+        # The raw column has a long tail of corrupted dates (typo'd/OCR'd years like 7201, 5201,
+        # 3013 ...). Filtering to <= 2030 still lets ~3.9k of those through, so MAX() over that
+        # window just returns another corrupted value instead of a real one. The year-by-year
+        # disposal counts fall off smoothly through 2020 (2020 itself is a partial year, ~3.7k
+        # rows) then cliff to single digits scattered across the next decade -- classic corruption,
+        # not real data. 2021-01-01 is the bound that keeps the real tail and drops the noise.
+        max_date_raw = con.execute(f"SELECT MAX({dec_col}) FROM read_csv_auto('{main_csv}') WHERE {dec_col} <= '2021-01-01'").fetchone()[0]
         max_date = str(max_date_raw) if max_date_raw is not None else ""
         report_lines.append(f"## 5. Data Cutoff\n- True maximum decision_date: `{max_date}`\n")
         # Update schema.yaml

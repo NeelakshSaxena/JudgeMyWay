@@ -23,7 +23,7 @@ Write-Host "=== 5. Running P4: Simulating Inventory Streams & Ageing Risk ===" -
 python scripts/04_build_streams.py
 
 Write-Host "=== 6. Running Full Verification Test Suite ===" -ForegroundColor Green
-python -m pytest tests/test_all.py tests/test_api.py -v
+python -m pytest tests/ -v
 
 Write-Host "=== 7. Launching FastAPI Backend Server ===" -ForegroundColor Green
 python -m uvicorn backend.main:app --port 8000

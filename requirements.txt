@@ -9,4 +9,5 @@ uvicorn
 pydantic
 pyyaml
 pytest
+httpx2
 

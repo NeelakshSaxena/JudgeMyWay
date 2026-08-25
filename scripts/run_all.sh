@@ -18,7 +18,7 @@ echo "=== 5. Running P4: Simulating Inventory Streams & Ageing Risk ==="
 python scripts/04_build_streams.py
 
 echo "=== 6. Running Full Verification Test Suite ==="
-pytest tests/test_all.py tests/test_api.py -v
+pytest tests/ -v
 
 echo "=== 7. Launching FastAPI Backend Server ==="
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
