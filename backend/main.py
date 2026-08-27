@@ -7,6 +7,10 @@ import pandas as pd
 import pickle
 import json
 import numpy as np
+import os
+
+DEMO_MODE = os.environ.get("DEMO_MODE") == "1"
+DEMO_SCENARIO = {}
 
 from src.optimization.allocate import allocate
 from src.optimization.override import override
@@ -31,13 +35,18 @@ def check_models(app_instance):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     check_models(app)
-    STATE['streams_df'] = pd.read_parquet("outputs/stream_metrics.parquet")
-    with open("models/km_curves.pkl", "rb") as f:
-        STATE['km_curves'] = pickle.load(f)
-    with open("outputs/quality_report.json", "r") as f:
-        STATE['quality'] = json.load(f)
+    if DEMO_MODE:
+        with open("data/demo/scenario.json", "r") as f:
+            DEMO_SCENARIO.update(json.load(f))
+    else:
+        STATE['streams_df'] = pd.read_parquet("outputs/stream_metrics.parquet")
+        with open("models/km_curves.pkl", "rb") as f:
+            STATE['km_curves'] = pickle.load(f)
+        with open("outputs/quality_report.json", "r") as f:
+            STATE['quality'] = json.load(f)
     yield
     STATE.clear()
+    DEMO_SCENARIO.clear()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -149,6 +158,10 @@ class QualityResponse(BaseModel):
 
 @app.get("/meta", response_model=MetaResponse)
 def meta():
+    if DEMO_MODE:
+        # Pydantic will serialize mode as "SIMULATED" if it was frozen that way.
+        return MetaResponse(**DEMO_SCENARIO["meta"])
+
     df = STATE['streams_df']
     n_cases = int(df['n'].sum())
     
@@ -203,6 +216,9 @@ def get_recomputed_p(case_type: str, age_band: str, threshold: int, horizon: int
 
 @app.get("/streams", response_model=StreamsResponse)
 def get_streams_api(threshold_days: int = 1095, horizon_days: int = 365):
+    if DEMO_MODE:
+        return StreamsResponse(**DEMO_SCENARIO["streams"])
+
     df = STATE['streams_df']
     
     if threshold_days == 1095 and horizon_days == 365:
@@ -227,6 +243,9 @@ def get_streams_api(threshold_days: int = 1095, horizon_days: int = 365):
 
 @app.post("/optimize", response_model=OptimizeResponse)
 def optimize_api(req: OptimizeRequest):
+    if DEMO_MODE:
+        return OptimizeResponse(**DEMO_SCENARIO["optimize"])
+
     streams_resp = get_streams_api(req.threshold_days, req.horizon_days)
     streams_list = [s.model_dump() if hasattr(s, 'model_dump') else s.dict() for s in streams_resp.streams]
     
@@ -247,6 +266,9 @@ def optimize_api(req: OptimizeRequest):
 
 @app.post("/override", response_model=OverrideResponse)
 def override_api(req: OverrideRequest):
+    if DEMO_MODE:
+        return OverrideResponse(**DEMO_SCENARIO["override"])
+
     streams_resp = get_streams_api(req.threshold_days, req.horizon_days)
     streams_list = [s.model_dump() if hasattr(s, 'model_dump') else s.dict() for s in streams_resp.streams]
 
@@ -269,6 +291,9 @@ def override_api(req: OverrideRequest):
 
 @app.get("/quality", response_model=QualityResponse)
 def quality_api():
+    if DEMO_MODE:
+        return QualityResponse(**DEMO_SCENARIO["quality"])
+
     q = STATE['quality']
     df = STATE['streams_df']
     low_conf_count = int(df['low_confidence'].sum())

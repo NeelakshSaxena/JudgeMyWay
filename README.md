@@ -1,104 +1,122 @@
+<div align="center">
+  
 # JudgeMyWay
 
-A capacity-planning tool for Indian district court administrators.
+**A Data-Driven Capacity Planning Console for Indian District Courts**
 
-Given a court's pending case inventory and historical disposal-time distributions, it projects how many cases will cross an ageing threshold, and recommends a disposal composition across case categories that minimises that number under fairness constraints. A registrar can override any recommendation; the system quantifies the consequence.
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111.0-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![OR-Tools](https://img.shields.io/badge/OR--Tools-9.10-red.svg)](https://developers.google.com/optimization)
+[![React](https://img.shields.io/badge/React-Vite-61DAFB.svg?logo=react)](https://reactjs.org/)
 
-## Dataset
+</div>
 
-This project uses the Indian district court dataset published by DevDataLab:
-*   **Link:** [https://www.devdatalab.org/judicial-data](https://www.devdatalab.org/judicial-data)
-*   For the current pipeline, download a sample state (e.g., Maharashtra 2010-2016).
-*   Extract the CSV file(s) into the `data/raw/` directory.
+---
 
-## Environment Setup
+## Overview
 
-Ensure you have Python 3.11 installed.
+**JudgeMyWay** is a retrospective simulation and capacity-planning tool designed specifically for court administrators and registrars. By analyzing a court's pending case inventory alongside historical disposal-time distributions, it projects how many cases will cross critical ageing thresholds (e.g., 3 years, 5 years). 
 
-```powershell
-# Create a virtual environment
+The system then recommends an **optimal disposal composition** across case categories to minimize these ageing crossings, while strictly enforcing fairness floors, historical realism bounds, and statistical confidence levels.
+
+---
+
+## Technical Architecture
+
+JudgeMyWay is built on a high-performance, stateless architecture focusing on strict privacy and statistical rigor.
+
+### 1. Survival Engine (Kaplan-Meier)
+Instead of relying on flawed averages (which ignore pending cases), the system models the duration until case disposal using **Kaplan-Meier survival curves** (via the `lifelines` library). It gracefully handles right-censored data (cases still pending) to calculate the precise conditional probability of a case crossing a given threshold within the planning horizon. Curves dynamically fall back through a hierarchy (Court → District → State → Global) to ensure sufficient statistical support (n > 200 events).
+
+### 2. Optimization Engine (CP-SAT)
+Disposal targets are computed using **Google OR-Tools' CP-SAT solver**. The model seeks to minimize the integer-scaled sum of projected crossings, subject to:
+- **Capacity Constraint:** Total targets cannot exceed court capacity minus reserved slots.
+- **Fairness Floor:** No case stream receives a target below 80% of its strictly proportional baseline.
+- **Realism Bound:** Recommendations cannot deviate from the historical disposal composition by more than 30%.
+- **Confidence Cap:** Low-confidence statistical streams are tightly constrained to a 15% variance from their baseline.
+
+If the problem is over-constrained, the solver autonomously applies a documented relaxation ladder rather than failing silently.
+
+### 3. Tech Stack
+- **Data Ingestion:** `duckdb` (for massive out-of-core file parsing), `pandas`, `pyarrow`
+- **Backend:** `FastAPI`, `uvicorn`, `pydantic`
+- **Frontend:** React (JavaScript), Vite, Recharts (Strictly local, no state libraries)
+
+---
+
+## Dataset & Citation
+
+This project relies on the open-access **Development Data Lab (DDL)** Judicial dataset.
+
+> **Citation:** 
+> DevDataLab Judicial Dataset. Available at: [https://www.devdatalab.org/judicial-data](https://www.devdatalab.org/judicial-data).
+
+---
+
+## How to Run Locally
+
+*Note: This is a prototype MVP. There is no cloud deployment, and all execution happens locally.*
+
+### 1. Environment Setup
+Ensure you have Python 3.11 installed. Create a virtual environment and install the required dependencies:
+
+```bash
+# Create environment
 python -m venv venv
 
-# Activate it (Windows)
-.\venv\Scripts\activate
+# Activate (Windows)
+venv\Scripts\activate
+# Activate (Unix/macOS)
+source venv/bin/activate
 
-# Install exact pinned dependencies
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## Reproducing the Pipeline (Up to P6)
-
-The project is currently built up to **P6: API**. To reproduce the pipeline exactly on your machine, follow these steps in order.
-
-Make sure your `PYTHONPATH` is set to the project root before running scripts:
-```powershell
-$env:PYTHONPATH="."
-```
-
-### 1. P0: Recon & Schema Discovery
-This phase verifies the schema mapping against the raw CSV files in `data/raw/`.
-```powershell
-python scripts/00_p0_recon.py
-```
-*Output: Generates a recon report at `outputs/p0_recon.md`.*
-
-### 2. P2: Ingestion & Cleaning
-This phase reads the raw data, applies strict schema rules, drops forbidden columns (like names or genders), computes censoring (`event_observed`), and calculates `duration_days`.
-```powershell
-python scripts/02_clean.py
-```
-*Output: Generates `data/processed/survival_dataset.parquet` and `outputs/quality_report.json`.*
-
-### 3. P3: Survival Engine
-This phase fits the Kaplan-Meier survival curves on the cleaned dataset. It builds a hierarchical fallback ladder (`case_type x court` -> `case_type x district` -> `case_type x state` -> `global`) to handle data sparsity.
-```powershell
-python scripts/03_fit_km.py
-```
-*Output: Saves fitted models to `models/km_curves.pkl`.*
-
-### 4. P4: Streams & Risk
-This phase simulates a retrospective inventory (from the last 2 years of data). It places cases into age bands and computes the probability (`p_cross`) of each case crossing a 2-year threshold within a 12-month horizon. It then aggregates these probabilities to create **case streams**.
-```powershell
-python scripts/04_build_streams.py
-```
-*Output: Generates the stream metrics file `outputs/stream_metrics.parquet`.*
-
-### 5. P5 & P6: Optimization Engine & API Server
-The backend exposes FastAPI endpoints leveraging OR-Tools CP-SAT to dynamically optimize court allocations. To start the server:
-```powershell
-python -m uvicorn backend.main:app --port 8000
-```
-*Output: The backend API runs on `http://localhost:8000`.*
-
-### 6. P7: React Institutional Console (Frontend)
-The frontend is a single-screen institutional capacity-planning console built with Vite & React. To start the dev server:
-```powershell
-cd frontend
-npm install
-npx vite --port 5173
-```
-*Output: The React console opens on `http://localhost:5173`.*
-
-### Single-Command Full End-to-End Pipeline Execution
-To run the entire pipeline end-to-end (from raw data recon, cleaning, survival fitting, streams simulation, test suite, to launching the backend server):
+### 2. Full Pipeline Execution
+To process the raw data, fit the survival models, and run the complete optimization pipeline (Phases P0 to P10):
 
 ```bash
-# Bash (Linux/macOS/Git Bash)
-chmod +x scripts/run_all.sh
+# On Windows PowerShell:
+.\scripts\run_all.ps1
+
+# On Unix/macOS:
 ./scripts/run_all.sh
-
-# PowerShell (Windows)
-.\scripts/run_all.ps1
 ```
 
-## Verification & Testing
+### 3. Running the Demo (Frozen State)
+To run the frozen demo scenario for presentations without triggering live heavy computation:
 
-The project has a strict testing suite to guarantee statistical correctness, constraint feasibility, and API functionality.
-
-```powershell
-python -m pytest tests/test_all.py tests/test_api.py -v
+**Terminal 1 (Backend):**
+```bash
+# Start API in Demo Mode
+DEMO_MODE=1 uvicorn backend.main:app --port 8000
 ```
-*All 27 tests should pass green.*
+*(On Windows PowerShell, use: `$env:DEMO_MODE="1"; uvicorn backend.main:app --port 8000`)*
+
+**Terminal 2 (Frontend):**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Navigate to `http://localhost:5173` in your browser.
 
 ---
-**Status**: The system has passed the **P8: Integration** hard gate with full E2E validation. Next phase: **P9 (Override Analysis / Post-Optimization Tuning)**.
+
+## Real vs. Simulated
+
+- **Real:** The underlying math, Kaplan-Meier curves, dataset cleaning, OR-Tools CP-SAT optimization model, and statistical logic are fully operational and operating on real historical data.
+- **Simulated:** The API endpoints under `DEMO_MODE=1` serve pre-computed responses frozen into a scenario file. The "pending inventory" evaluated is simulated retrospectively by treating historical cases from the final 2 years of the dataset as currently pending.
+
+---
+
+## Strict Limitations (Verbatim from Spec)
+
+- **NEVER rank, score, or expose any individual case.** All output is strictly at the CASE STREAM aggregate level (`case_type` × `age_band`). The API must not return per-case values, even in debug output.
+- **NEVER use forbidden columns as model features.** (e.g., disposition, outcome, decision_date, judge_id, judge_position, petitioner_name, respondent_name, party gender, hearing_date).
+- **NEVER drop cases with a missing decision date.** They are strictly treated as **RIGHT-CENSORED** and must be kept. Dropping them biases every duration estimate downward.
+- **NEVER infer urgency** (e.g., bail, custody, interim relief, vulnerability). That data is absent.
+- **NEVER claim capacity causes faster disposal.** The decision variable is purely DISPOSAL TARGETS.
+- **NEVER invent data, numbers, or performance figures.** If a value isn't computed mathematically, it isn't printed.
+- **Simulated components must be clearly labelled SIMULATED in the UI.**

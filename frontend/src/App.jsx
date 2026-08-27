@@ -1,5 +1,18 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { API_BASE } from './config';
+
+// Color palette for the waffle chart
+const COLORS = [
+  '#3b82f6', // blue-500
+  '#10b981', // emerald-500
+  '#f59e0b', // amber-500
+  '#8b5cf6', // violet-500
+  '#ec4899', // pink-500
+  '#06b6d4', // cyan-500
+  '#f97316', // orange-500
+  '#64748b'  // slate-500 (Other)
+];
 
 export default function App() {
   // Global Metadata & Quality
@@ -161,7 +174,6 @@ export default function App() {
     const newOverrides = { ...overrides, [streamId]: parsedVal };
     setOverrides(newOverrides);
 
-    // Call POST /override
     try {
       const tDays = thresholdYears * 365;
       const hDays = Math.round(horizonMonths * 30.416);
@@ -182,33 +194,100 @@ export default function App() {
         setOverrideNotice(`Override update status: HTTP ${res.status}`);
       } else {
         const data = await res.json();
-
         if (!data.feasible) {
           setOverrideNotice(data.reason || "This combination of locked targets cannot be met.");
         } else {
           const before = Math.round(data.before.crossings);
           const after = Math.round(data.after.crossings);
-          const delta = Math.round(data.delta);
-          const deltaStr = `${delta > 0 ? '+' : ''}${delta}`;
-
-          const parts = [`Projected crossings: ${before} -> ${after} (${deltaStr})`];
-
-          if (data.affected_streams && data.affected_streams.length > 0) {
-            parts.push(`Affected streams: ${data.affected_streams.join(', ')}`);
-          }
-
-          const constraintNotes = [...(data.violations || []), ...(data.relaxed_constraints || [])];
-          parts.push(constraintNotes.length > 0
-            ? `Constraints: ${constraintNotes.join('; ')}`
-            : 'Constraints: OK');
-
-          setOverrideNotice(parts.join(' | '));
+          const deltaVal = Math.round(data.delta);
+          const deltaStr = `${deltaVal > 0 ? '+' : ''}${deltaVal}`;
+          setOverrideNotice(`Projected crossings: ${before} -> ${after} (${deltaStr})`);
         }
       }
     } catch (err) {
       setOverrideNotice("Override local adjustment applied.");
     }
   };
+
+  // Prepare Bar Chart Data
+  const barChartData = useMemo(() => {
+    if (optimisedCrossings === null) return [];
+    return [
+      {
+        name: 'Projected Ageing Cases',
+        Baseline: baselineCrossings,
+        Optimised: optimisedCrossings,
+      }
+    ];
+  }, [baselineCrossings, optimisedCrossings]);
+
+  // Prepare Waffle Chart Data (Slot Allocation out of 1000)
+  const waffleData = useMemo(() => {
+    if (!plan || !plan.allocation) return { cells: [], legend: [] };
+
+    // Map allocation to streams
+    const streamAllocations = streams.map(s => {
+      const target = overrides[s.id] !== undefined ? overrides[s.id] : (plan.allocation[s.id] || 0);
+      return { ...s, allocated: target };
+    }).filter(s => s.allocated > 0);
+
+    // Sort by allocated descending
+    streamAllocations.sort((a, b) => b.allocated - a.allocated);
+
+    // Calculate slots out of 1000 grids
+    const TOTAL_GRIDS = 1000;
+    const totalAllocated = streamAllocations.reduce((sum, s) => sum + s.allocated, 0);
+    
+    // Top 7 get specific colors, rest are grouped into 'Other'
+    const topStreams = streamAllocations.slice(0, 7);
+    const otherStreams = streamAllocations.slice(7);
+    
+    let chartGroups = topStreams.map((s, i) => ({
+      label: s.case_type,
+      color: COLORS[i],
+      allocated: s.allocated
+    }));
+
+    if (otherStreams.length > 0) {
+      const otherAllocated = otherStreams.reduce((sum, s) => sum + s.allocated, 0);
+      chartGroups.push({
+        label: 'Other Categories',
+        color: COLORS[7],
+        allocated: otherAllocated
+      });
+    }
+
+    // Assign slots using Largest Remainder Method to ensure exact 1000 grids
+    let totalSlotsAssigned = 0;
+    chartGroups = chartGroups.map(g => {
+      const exactSlots = (g.allocated / totalAllocated) * TOTAL_GRIDS;
+      const roundedSlots = Math.floor(exactSlots);
+      const remainder = exactSlots - roundedSlots;
+      totalSlotsAssigned += roundedSlots;
+      return { ...g, slots: roundedSlots, remainder };
+    });
+
+    chartGroups.sort((a, b) => b.remainder - a.remainder);
+    
+    let remainderToDistribute = TOTAL_GRIDS - totalSlotsAssigned;
+    for (let i = 0; i < remainderToDistribute; i++) {
+      if (i < chartGroups.length) {
+        chartGroups[i].slots += 1;
+      }
+    }
+
+    // Sort back to original descending order for rendering
+    chartGroups.sort((a, b) => b.allocated - a.allocated);
+
+    const cells = [];
+    chartGroups.forEach(g => {
+      for (let i = 0; i < g.slots; i++) {
+        cells.push({ color: g.color, label: g.label });
+      }
+    });
+
+    return { cells, legend: chartGroups };
+  }, [plan, streams, overrides]);
 
   return (
     <div className="app-container">
@@ -225,7 +304,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* ERROR BANNER IF DEGRADED */}
+      {/* ERROR BANNER */}
       {error && (
         <div className="error-banner">
           <div>
@@ -235,7 +314,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 2. CONTROLS ROW */}
+      {/* 2. CONTROLS */}
       <section className="controls-card">
         <div className="control-group">
           <div className="control-label">
@@ -288,7 +367,7 @@ export default function App() {
         <div className="control-group">
           <div className="control-label">
             <span>Reserved Priority</span>
-            <span className="control-val">{Number(reserved).toLocaleString()} Cases</span>
+            <span className="control-val">{Number(reserved).toLocaleString()}</span>
           </div>
           <input
             type="number"
@@ -301,7 +380,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* 3. SUMMARY ROW */}
+      {/* 3. SUMMARY */}
       <section className="summary-grid">
         <div className="stat-card">
           <span className="stat-title">Pending Inventory</span>
@@ -315,7 +394,7 @@ export default function App() {
           <span className="stat-subtext">At current velocity</span>
         </div>
 
-        <div className="stat-card highlight">
+        <div className="stat-card">
           <span className="stat-title">Projected Crossings (Optimised)</span>
           <span className="stat-value">
             {optimizing ? 'Calculating...' : (optimisedCrossings !== null ? optimisedCrossings.toLocaleString() : '—')}
@@ -332,18 +411,18 @@ export default function App() {
         </div>
       </section>
 
-      {/* ACTION BAR & NOTICES */}
+      {/* ACTION BAR */}
       <div className="action-bar">
         <button 
           className="btn-primary" 
           onClick={handleGeneratePlan}
           disabled={loading || optimizing}
         >
-          {optimizing ? 'Optimizing Allocation...' : 'GENERATE PLAN'}
+          {optimizing ? 'Optimizing Allocation...' : 'Generate Optimisation Plan'}
         </button>
 
         {plan && plan.relaxed_constraints && plan.relaxed_constraints.length > 0 && (
-          <div className="notice-amber" style={{ margin: 0, padding: '6px 14px' }}>
+          <div className="notice-amber" style={{ padding: '8px 12px', flex: 1, maxHeight: '100px', overflowY: 'auto' }}>
             <span className="notice-title">Solver Relaxation: </span>
             {plan.relaxed_constraints.join('; ')}
           </div>
@@ -356,99 +435,143 @@ export default function App() {
         </div>
       )}
 
-      {/* 4. STREAM TABLE & OVERRIDE PANEL */}
-      <section className="table-container">
-        <table className="stream-table">
-          <thead>
-            <tr>
-              <th>Stream (Category × Age)</th>
-              <th className="num-col">Inventory</th>
-              <th className="num-col">Ageing Risk (p)</th>
-              <th>Confidence</th>
-              <th className="num-col">Hist Share</th>
-              <th className="num-col">Baseline Target</th>
-              <th className="num-col">Recommended Target</th>
-              <th className="num-col">Change</th>
-            </tr>
-          </thead>
-          <tbody>
-            {streams.length === 0 ? (
-              <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--color-ink-muted)' }}>
-                  {loading ? 'Loading stream data from survival engine...' : 'No stream metrics available.'}
-                </td>
-              </tr>
+      {/* VISUALIZATION SECTION */}
+      {plan && !optimizing && (
+        <section className="viz-section">
+          {/* Bar Chart */}
+          <div className="chart-card">
+            <h3 className="chart-title">Impact: Baseline vs Optimised</h3>
+            <div style={{ width: '100%', height: '300px' }}>
+              <ResponsiveContainer>
+                <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip cursor={{fill: '#f1f5f9'}} />
+                  <Legend />
+                  <Bar dataKey="Baseline" fill="#94a3b8" name="Baseline Crossings" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Optimised" fill="#3b82f6" name="Optimised Crossings" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Waffle Chart */}
+          <div className="chart-card">
+            <h3 className="chart-title" data-tooltip="Each grid represents a proportion of your total throughput capacity allocated to cases.">
+              Capacity Allocation (1000 Slots)
+            </h3>
+            {waffleData.legend.length > 0 ? (
+              <>
+                <div className="waffle-grid">
+                  {waffleData.cells.map((cell, idx) => (
+                    <div 
+                      key={idx} 
+                      className="waffle-cell" 
+                      style={{ backgroundColor: cell.color }}
+                      data-tooltip={cell.label}
+                    />
+                  ))}
+                </div>
+                <div className="waffle-legend">
+                  {waffleData.legend.map((item, idx) => (
+                    <div key={idx} className="waffle-legend-item">
+                      <div className="waffle-legend-color" style={{ backgroundColor: item.color }} />
+                      <span>{item.label} ({((item.allocated / currentTp) * 100).toFixed(1)}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : (
-              streams.slice(0, 50).map((s) => {
-                const pPct = s.p !== null && s.p !== undefined ? (s.p * 100).toFixed(1) : '—';
-                const pLoPct = s.p_lo !== null && s.p_lo !== undefined ? (s.p_lo * 100).toFixed(1) : null;
-                const pHiPct = s.p_hi !== null && s.p_hi !== undefined ? (s.p_hi * 100).toFixed(1) : null;
-                const ciStr = pLoPct !== null && pHiPct !== null ? ` [${pLoPct}%–${pHiPct}%]` : '';
-
-                // Target calculations
-                const baselineTarget = plan && plan.baseline ? Math.round(plan.baseline[s.id] || 0) : '—';
-                const optTarget = plan && plan.allocation ? plan.allocation[s.id] : undefined;
-                const currentTarget = overrides[s.id] !== undefined ? overrides[s.id] : optTarget;
-
-                let changeStr = '—';
-                let changeClass = 'change-tag';
-                if (currentTarget !== undefined && baselineTarget !== '—') {
-                  const diff = currentTarget - baselineTarget;
-                  changeStr = `${diff >= 0 ? '+' : ''}${diff}`;
-                  changeClass = `change-tag ${diff >= 0 ? 'pos' : 'neg'}`;
-                }
-
-                return (
-                  <tr key={s.id}>
-                    <td>
-                      {s.low_confidence && (
-                        <span 
-                          className="dot-amber" 
-                          data-tooltip={`Stratum resolution: ${s.stratum_level}`} 
-                        />
-                      )}
-                      <strong>{s.case_type}</strong> · <span style={{ color: 'var(--color-ink-muted)' }}>{s.age_band}</span>
-                    </td>
-                    <td className="num-col">{s.n.toLocaleString()}</td>
-                    <td className="num-col">
-                      <strong>{pPct !== '—' ? `${pPct}%` : '—'}</strong>
-                      <span style={{ fontSize: '10px', color: 'var(--color-ink-muted)' }}>{ciStr}</span>
-                    </td>
-                    <td>
-                      {s.low_confidence ? (
-                        <span className="badge-low-conf" data-tooltip={`Resolved at ${s.stratum_level}`}>
-                          Low Conf
-                        </span>
-                      ) : (
-                        <span className="badge-high-conf">Primary</span>
-                      )}
-                    </td>
-                    <td className="num-col">{(s.historical_share * 100).toFixed(1)}%</td>
-                    <td className="num-col">{baselineTarget.toLocaleString()}</td>
-                    <td className="num-col">
-                      {plan ? (
-                        <input
-                          type="number"
-                          className="target-input"
-                          value={currentTarget !== undefined ? currentTarget : ''}
-                          onChange={(e) => handleOverrideChange(s.id, e.target.value)}
-                        />
-                      ) : (
-                        <span>—</span>
-                      )}
-                    </td>
-                    <td className="num-col">
-                      <span className={changeClass}>{changeStr}</span>
-                    </td>
-                  </tr>
-                );
-              })
+              <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)' }}>
+                No allocation data available for charting.
+              </div>
             )}
-          </tbody>
-        </table>
+          </div>
+        </section>
+      )}
+
+      {/* 4. STREAM TABLE */}
+      <section className="table-container">
+        <div className="table-wrapper">
+          <table className="stream-table">
+            <thead>
+              <tr>
+                <th>Stream (Category × Age)</th>
+                <th className="num-col">Inventory</th>
+                <th className="num-col">Ageing Risk (p)</th>
+                <th>Confidence</th>
+                <th className="num-col">Hist Share</th>
+                <th className="num-col">Baseline Target</th>
+                <th className="num-col">Recommended Target</th>
+                <th className="num-col">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              {streams.length === 0 ? (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-muted)' }}>
+                    {loading ? 'Loading stream data from survival engine...' : 'No stream metrics available.'}
+                  </td>
+                </tr>
+              ) : (
+                streams.slice(0, 50).map((s) => {
+                  const pPct = s.p !== null && s.p !== undefined ? (s.p * 100).toFixed(1) : '—';
+                  const baselineTarget = plan && plan.baseline ? Math.round(plan.baseline[s.id] || 0) : '—';
+                  const optTarget = plan && plan.allocation ? plan.allocation[s.id] : undefined;
+                  const currentTarget = overrides[s.id] !== undefined ? overrides[s.id] : optTarget;
+
+                  let changeStr = '—';
+                  let changeClass = 'change-tag';
+                  if (currentTarget !== undefined && baselineTarget !== '—') {
+                    const diff = currentTarget - baselineTarget;
+                    changeStr = `${diff >= 0 ? '+' : ''}${diff}`;
+                    changeClass = `change-tag ${diff >= 0 ? 'pos' : 'neg'}`;
+                  }
+
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        {s.low_confidence && <span className="dot-amber" data-tooltip="Low confidence projection" />}
+                        <strong>{s.case_type}</strong> · <span style={{ color: 'var(--color-text-light)' }}>{s.age_band}</span>
+                      </td>
+                      <td className="num-col">{s.n.toLocaleString()}</td>
+                      <td className="num-col">
+                        <strong>{pPct !== '—' ? `${pPct}%` : '—'}</strong>
+                      </td>
+                      <td>
+                        {s.low_confidence ? (
+                          <span className="badge-low-conf">Low Conf</span>
+                        ) : (
+                          <span className="badge-high-conf">Primary</span>
+                        )}
+                      </td>
+                      <td className="num-col">{(s.historical_share * 100).toFixed(1)}%</td>
+                      <td className="num-col">{baselineTarget.toLocaleString()}</td>
+                      <td className="num-col">
+                        {plan ? (
+                          <input
+                            type="number"
+                            className="target-input"
+                            value={currentTarget !== undefined ? currentTarget : ''}
+                            onChange={(e) => handleOverrideChange(s.id, e.target.value)}
+                          />
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </td>
+                      <td className="num-col">
+                        <span className={changeClass}>{changeStr}</span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      {/* 7. DATA QUALITY STRIP */}
+      {/* 5. DATA QUALITY STRIP */}
       {quality && (
         <section className="quality-strip">
           <div className="quality-header" onClick={() => setShowExclusions(!showExclusions)}>
@@ -464,10 +587,6 @@ export default function App() {
               <div className="quality-metric-item">
                 <span className="quality-metric-label">Censored:</span>
                 <span className="quality-metric-val">{quality.records_censored.toLocaleString()}</span>
-              </div>
-              <div className="quality-metric-item">
-                <span className="quality-metric-label">Low-Confidence Streams:</span>
-                <span className="quality-metric-val">{quality.low_confidence_streams}</span>
               </div>
             </div>
             <span className="toggle-link">
@@ -488,7 +607,7 @@ export default function App() {
         </section>
       )}
 
-      {/* 8. FOOTER */}
+      {/* FOOTER */}
       <footer className="app-footer">
         JudgeMyWay recommends disposal composition across case categories. It never ranks individual cases. Listing remains with the registrar.
       </footer>

@@ -14,3 +14,8 @@
 {"timestamp": "2026-08-24T20:37:34.738415+00:00", "stream_id": "a", "recommended": 60, "chosen": 60, "delta_crossings": 0.0}
 {"timestamp": "2026-08-24T20:37:34.738415+00:00", "stream_id": "b", "recommended": 40, "chosen": 40, "delta_crossings": 0.0}
 {"timestamp": "2026-08-24T20:37:34.762872+00:00", "stream_id": "a", "recommended": 60, "chosen": 0, "delta_crossings": 54.0}
+{"timestamp": "2026-08-25T05:35:10.289074+00:00", "stream_id": "stream_4_10y", "recommended": 0, "chosen": 0, "delta_crossings": 0.0}
+{"timestamp": "2026-08-25T05:35:10.511530+00:00", "stream_id": "a", "recommended": 60, "chosen": 60, "delta_crossings": 0.0}
+{"timestamp": "2026-08-25T05:35:10.511530+00:00", "stream_id": "b", "recommended": 40, "chosen": 40, "delta_crossings": 0.0}
+{"timestamp": "2026-08-25T05:35:10.554678+00:00", "stream_id": "a", "recommended": 60, "chosen": 0, "delta_crossings": 54.0}
+{"timestamp": "2026-08-25T05:41:21.722199+00:00", "stream_id": "stream_1391_10y", "recommended": 19738, "chosen": 69754, "delta_crossings": -50016.0}

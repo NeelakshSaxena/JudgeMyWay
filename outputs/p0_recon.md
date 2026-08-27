@@ -2,19 +2,29 @@
 
 ## 1. Files in data/raw/
 
+- `data/raw\.gitkeep`: 0.00 MB
 - `data/raw\justice_data.zip`: 4890.69 MB
+- `data/raw\license.txt`: 0.02 MB
+- `data/raw\README.md`: 0.00 MB
+- `data/raw\csv\acts_sections.csv`: 3403.55 MB
+- `data/raw\csv\judges_clean.csv`: 7.96 MB
+- `data/raw\csv\judges_clean.tar`: 7.96 MB
+- `data/raw\csv\judges_clean.tar.gz`: 0.84 MB
+- `data/raw\csv\cases\cases.tar.gz`: 1343.56 MB
 - `data/raw\csv\cases\cases_2010.csv`: 817.29 MB
 - `data/raw\csv\cases\cases_2011.csv`: 995.51 MB
 - `data/raw\csv\cases\cases_2012.csv`: 1223.55 MB
-- `data/raw\justice_data\license.txt`: 0.02 MB
-- `data/raw\justice_data\csv\acts_sections.tar.gz`: 541.14 MB
-- `data/raw\justice_data\csv\judges_clean.tar.gz`: 0.84 MB
-- `data/raw\justice_data\csv\cases\cases.tar.gz`: 1343.56 MB
-- `data/raw\justice_data\csv\keys\keys.tar.gz`: 63.41 MB
-- `data/raw\justice_data\dta\acts_sections.tar.gz`: 503.51 MB
-- `data/raw\justice_data\dta\judges_clean.tar.gz`: 2.61 MB
-- `data/raw\justice_data\dta\cases\cases.tar.gz`: 2320.47 MB
-- `data/raw\justice_data\dta\keys\keys.tar.gz`: 115.11 MB
+- `data/raw\csv\cases\cases_2013.csv`: 1444.17 MB
+- `data/raw\csv\cases\cases_2014.csv`: 1694.62 MB
+- `data/raw\csv\cases\cases_2015.csv`: 2000.52 MB
+- `data/raw\csv\cases\cases_2016.csv`: 2161.17 MB
+- `data/raw\csv\cases\cases_2017.csv`: 2485.44 MB
+- `data/raw\csv\cases\cases_2018.csv`: 2591.45 MB
+- `data/raw\csv\keys\keys.tar.gz`: 63.41 MB
+- `data/raw\dta\acts_sections.tar.gz`: 503.51 MB
+- `data/raw\dta\judges_clean.tar.gz`: 2.61 MB
+- `data/raw\dta\cases\cases.tar.gz`: 2320.47 MB
+- `data/raw\dta\keys\keys.tar.gz`: 115.11 MB
 
 ## Analyzing File: `data/raw\csv\cases\cases_2010.csv`
 
